@@ -9,7 +9,7 @@ export default function Chat() {
   const [newMessage, setNewMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState('');
   const [loading, setLoading] = useState(true);
-  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  const [onlineUsers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     getCurrentUser();

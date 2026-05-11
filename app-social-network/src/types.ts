@@ -51,6 +51,7 @@ export interface Notification {
   user_id: string;
   type: 'like' | 'comment' | 'message' | 'follow';
   actor_id: string;
+  actor?: UserProfile;
   post_id?: string;
   comment_id?: string;
   message?: string;

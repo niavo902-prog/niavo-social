@@ -15,6 +15,7 @@ export default function PostCard({ post, onPostUpdated }: PostCardProps) {
   const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState('');
+  const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
 
   useEffect(() => {
     getCurrentUser();
@@ -131,12 +132,12 @@ export default function PostCard({ post, onPostUpdated }: PostCardProps) {
       {/* Header */}
       <div className="flex items-center gap-3 mb-3">
         <img
-          src={post.profiles?.avatar_url || 'https://via.placeholder.com/40'}
+          src={author?.avatar_url || 'https://via.placeholder.com/40'}
           alt="Avatar"
           className="w-10 h-10 rounded-full object-cover"
         />
         <div>
-          <p className="font-bold text-slate-800">{post.profiles?.full_name || 'Anonyme'}</p>
+          <p className="font-bold text-slate-800">{author?.full_name || 'Anonyme'}</p>
           <p className="text-xs text-slate-500">{new Date(post.created_at).toLocaleDateString()}</p>
         </div>
       </div>
