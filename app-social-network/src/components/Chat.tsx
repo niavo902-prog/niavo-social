@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import type { Message } from '../types';
+import type { Message, UserProfile } from '../types';
 
 export default function Chat() {
-  const [conversations, setConversations] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<UserProfile[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -16,10 +17,19 @@ export default function Chat() {
   }, []);
 
   useEffect(() => {
+    let channel: any;
+
     if (currentUserId) {
       fetchConversations();
-      subscribeToMessages();
+      fetchAvailableUsers();
+      channel = subscribeToMessages();
     }
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, [currentUserId]);
 
   const getCurrentUser = async () => {
@@ -34,19 +44,19 @@ export default function Chat() {
         .select(`
           sender_id,
           receiver_id,
-          sender:sender_id (id, username, avatar_url),
-          receiver:receiver_id (id, username, avatar_url)
+          sender:sender_id (id, full_name, avatar_url),
+          receiver:receiver_id (id, full_name, avatar_url)
         `)
         .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const uniqueUsers = new Map();
+      const uniqueUsers = new Map<string, UserProfile>();
       data?.forEach((msg: any) => {
         const otherUserId = msg.sender_id === currentUserId ? msg.receiver_id : msg.sender_id;
         const otherUser = msg.sender_id === currentUserId ? msg.receiver : msg.sender;
-        if (!uniqueUsers.has(otherUserId)) {
+        if (!uniqueUsers.has(otherUserId) && otherUser) {
           uniqueUsers.set(otherUserId, otherUser);
         }
       });
@@ -56,6 +66,20 @@ export default function Chat() {
     } catch (err) {
       console.error('Erreur conversations:', err);
       setLoading(false);
+    }
+  };
+
+  const fetchAvailableUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .neq('id', currentUserId);
+
+      if (error) throw error;
+      setAvailableUsers(data || []);
+    } catch (err) {
+      console.error('Erreur utilisateurs disponibles:', err);
     }
   };
 
@@ -108,6 +132,8 @@ export default function Chat() {
     };
   };
 
+  const selectedUser = [...conversations, ...availableUsers].find((user) => user.id === selectedUserId);
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedUserId) return;
 
@@ -136,30 +162,63 @@ export default function Chat() {
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <p className="text-center text-slate-400 p-4">Chargement...</p>
-          ) : conversations.length === 0 ? (
-            <p className="text-center text-slate-400 p-4">Aucune conversation</p>
           ) : (
-            conversations.map((user) => (
-              <button
-                key={user.id}
-                onClick={() => {
-                  setSelectedUserId(user.id);
-                  fetchMessages(user.id);
-                }}
-                className={`w-full p-3 border-b border-slate-200 text-left hover:bg-slate-50 flex items-center gap-3 ${
-                  selectedUserId === user.id ? 'bg-blue-50' : ''
-                }`}
-              >
-                <img src={user.avatar_url || 'https://via.placeholder.com/40'} alt="Avatar" className="w-10 h-10 rounded-full" />
-                <div>
-                  <p className="font-bold text-sm text-slate-800">{user.username}</p>
-                  <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${onlineUsers.has(user.id) ? 'bg-green-500' : 'bg-slate-300'}`} />
-                    <p className="text-xs text-slate-500">{onlineUsers.has(user.id) ? 'En ligne' : 'Hors ligne'}</p>
-                  </div>
-                </div>
-              </button>
-            ))
+            <>
+              <div className="px-4 py-3 border-b border-slate-200">
+                <h3 className="text-sm font-semibold text-slate-700">Conversations</h3>
+              </div>
+              {conversations.length === 0 ? (
+                <p className="text-center text-slate-400 p-4">Aucune conversation pour le moment.</p>
+              ) : (
+                conversations.map((user) => (
+                  <button
+                    key={user.id}
+                    onClick={() => {
+                      setSelectedUserId(user.id);
+                      fetchMessages(user.id);
+                    }}
+                    className={`w-full p-3 border-b border-slate-200 text-left hover:bg-slate-50 flex items-center gap-3 ${
+                      selectedUserId === user.id ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    <img src={user.avatar_url || 'https://via.placeholder.com/40'} alt="Avatar" className="w-10 h-10 rounded-full" />
+                    <div>
+                      <p className="font-bold text-sm text-slate-800">{user.full_name || 'Utilisateur'}</p>
+                      <div className="flex items-center gap-1">
+                        <div className={`w-2 h-2 rounded-full ${onlineUsers.has(user.id) ? 'bg-green-500' : 'bg-slate-300'}`} />
+                        <p className="text-xs text-slate-500">{onlineUsers.has(user.id) ? 'En ligne' : 'Hors ligne'}</p>
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+
+              <div className="px-4 py-3 border-t border-slate-200">
+                <h3 className="text-sm font-semibold text-slate-700">Nouveaux utilisateurs</h3>
+              </div>
+              {availableUsers.length === 0 ? (
+                <p className="text-center text-slate-400 p-4">Aucun autre utilisateur trouvé.</p>
+              ) : (
+                availableUsers.map((user) => (
+                  <button
+                    key={user.id}
+                    onClick={() => {
+                      setSelectedUserId(user.id);
+                      fetchMessages(user.id);
+                    }}
+                    className={`w-full p-3 border-b border-slate-200 text-left hover:bg-slate-50 flex items-center gap-3 ${
+                      selectedUserId === user.id ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    <img src={user.avatar_url || 'https://via.placeholder.com/40'} alt="Avatar" className="w-10 h-10 rounded-full" />
+                    <div>
+                      <p className="font-bold text-sm text-slate-800">{user.full_name || 'Utilisateur'}</p>
+                      <p className="text-xs text-slate-500">Démarrer une conversation</p>
+                    </div>
+                  </button>
+                ))
+              )}
+            </>
           )}
         </div>
       </div>
@@ -168,27 +227,34 @@ export default function Chat() {
       <div className="flex-1 flex flex-col">
         {selectedUserId ? (
           <>
+            <div className="border-b border-slate-200 px-4 py-3 bg-white">
+              <h3 className="text-lg font-semibold text-slate-800">Discussion avec {selectedUser?.full_name || 'Utilisateur'}</h3>
+            </div>
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}
-                >
+              {messages.length === 0 ? (
+                <p className="text-center text-slate-400">Aucun message pour cette conversation. Écris-le premier !</p>
+              ) : (
+                messages.map((msg) => (
                   <div
-                    className={`max-w-xs px-4 py-2 rounded-lg ${
-                      msg.sender_id === currentUserId
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-200 text-slate-800'
-                    }`}
+                    key={msg.id}
+                    className={`flex ${msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}
                   >
-                    <p>{msg.content}</p>
-                    <p className="text-xs opacity-70 mt-1">
-                      {new Date(msg.created_at).toLocaleTimeString()}
-                    </p>
+                    <div
+                      className={`max-w-xs px-4 py-2 rounded-lg ${
+                        msg.sender_id === currentUserId
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-200 text-slate-800'
+                      }`}
+                    >
+                      <p>{msg.content}</p>
+                      <p className="text-xs opacity-70 mt-1">
+                        {new Date(msg.created_at).toLocaleTimeString()}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
             {/* Input */}
