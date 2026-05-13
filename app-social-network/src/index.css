@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+@theme {
+  --color-fb-blue: #1877f2;
+  --color-fb-bg: #f0f2f5;
+  --color-fb-card: #ffffff;
+  --color-fb-text: #050505;
+  --color-fb-text-secondary: #65676b;
+  --color-fb-divider: #ced0d4;
+  --color-fb-hover: #e4e6eb;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-fb-bg);
+    color: var(--color-fb-text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+}

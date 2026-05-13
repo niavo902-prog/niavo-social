@@ -1,13 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { supabase } from '../supabaseClient';
-
+import type { UserProfile } from '../types';
 
 export default function CreatePost() {
   const [content, setContent] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData?.user?.id) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userData.user.id)
+        .single();
+      if (data) setProfile(data);
+    }
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -27,15 +44,11 @@ export default function CreatePost() {
       }
 
       // S'assurer que le profil utilisateur existe
-      const { error: profileError } = await supabase.from('profiles').upsert({
+      await supabase.from('profiles').upsert({
         id: userData.user.id,
-        full_name: '',
-        avatar_url: '',
+        full_name: profile?.full_name || '',
+        avatar_url: profile?.avatar_url || '',
       });
-
-      if (profileError) {
-        throw profileError;
-      }
 
       const { error: insertError } = await supabase.from('posts').insert([
         {
@@ -45,9 +58,7 @@ export default function CreatePost() {
         },
       ]);
 
-      if (insertError) {
-        throw insertError;
-      }
+      if (insertError) throw insertError;
 
       setContent('');
       setImageUrl('');
@@ -60,41 +71,72 @@ export default function CreatePost() {
   };
 
   return (
-    <section className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
-      <h2 className="text-xl font-semibold text-slate-800 mb-4">Publier un nouveau post</h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <textarea
-          value={content}
-          onChange={(event) => setContent(event.target.value)}
-          className="w-full min-h-[110px] rounded-3xl border border-slate-300 bg-slate-50 p-4 text-slate-900 placeholder-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-200 outline-none"
-          placeholder="Quoi de neuf ?"
-        />
-
-        {/* Image & Video URLs */}
-        <div className="space-y-2">
-          <input
-            type="url"
-            placeholder="URL de l'image (optionnel)"
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+    <section className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="flex gap-2">
+          <img
+            src={profile?.avatar_url || 'https://via.placeholder.com/40'}
+            alt="Avatar"
+            className="w-10 h-10 rounded-full object-cover"
+          />
+          <textarea
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            className="flex-1 min-h-[40px] bg-slate-100 rounded-full px-4 py-2 text-[17px] text-slate-900 placeholder-slate-500 hover:bg-slate-200 transition-colors focus:outline-none resize-none"
+            placeholder={`Quoi de neuf, ${profile?.full_name?.split(' ')[0] || ''} ?`}
           />
         </div>
 
-        {/* Preview */}
-        {imageUrl && (
-          <img src={imageUrl} alt="Preview" className="w-full rounded-lg max-h-64 object-cover" />
+        {/* Preview and Input for Image URL */}
+        {(imageUrl || content.length > 50) && (
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <input
+              type="url"
+              placeholder="URL de l'image (optionnel)"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none"
+            />
+            {imageUrl && (
+              <div className="relative group">
+                <img src={imageUrl} alt="Preview" className="w-full rounded-lg max-h-64 object-cover border border-slate-200" />
+                <button 
+                  onClick={() => setImageUrl('')}
+                  className="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-md hover:bg-slate-100"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
-        {error ? <p className="text-sm text-red-500">{error}</p> : null}
+        {error && <p className="text-xs text-red-500 px-2">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="inline-flex items-center justify-center rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-        >
-          {loading ? 'Publication...' : 'Publier'}
-        </button>
+        <div className="flex border-t border-slate-100 pt-3">
+          <button type="button" className="flex-1 flex items-center justify-center gap-2 py-2 hover:bg-slate-50 rounded-lg transition-colors">
+            <span className="text-xl">📹</span>
+            <span className="font-semibold text-slate-600 text-sm">Vidéo en direct</span>
+          </button>
+          <button type="button" className="flex-1 flex items-center justify-center gap-2 py-2 hover:bg-slate-50 rounded-lg transition-colors">
+            <span className="text-xl">🖼️</span>
+            <span className="font-semibold text-slate-600 text-sm">Photo/vidéo</span>
+          </button>
+          <button type="button" className="hidden sm:flex flex-1 items-center justify-center gap-2 py-2 hover:bg-slate-50 rounded-lg transition-colors">
+            <span className="text-xl">😊</span>
+            <span className="font-semibold text-slate-600 text-sm">Humeur/activité</span>
+          </button>
+        </div>
+
+        {content.trim() && (
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-slate-300 mt-2"
+          >
+            {loading ? 'Publication...' : 'Publier'}
+          </button>
+        )}
       </form>
     </section>
   );

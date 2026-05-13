@@ -30,13 +30,6 @@ export default function PostCard({ post, onPostUpdated }: PostCardProps) {
     if (!currentUserId) return;
 
     try {
-      // S'assurer que le profil utilisateur existe
-      await supabase.from('profiles').upsert({
-        id: currentUserId,
-        full_name: '',
-        avatar_url: '',
-      });
-
       if (isLiked) {
         await supabase.from('likes').delete().match({ post_id: post.id, user_id: currentUserId });
         setLikesCount(Math.max(0, likesCount - 1));
@@ -77,13 +70,6 @@ export default function PostCard({ post, onPostUpdated }: PostCardProps) {
 
     setLoading(true);
     try {
-      // S'assurer que le profil utilisateur existe
-      await supabase.from('profiles').upsert({
-        id: currentUserId,
-        full_name: '',
-        avatar_url: '',
-      });
-
       const { error } = await supabase.from('comments').insert({
         post_id: post.id,
         user_id: currentUserId,
@@ -102,17 +88,6 @@ export default function PostCard({ post, onPostUpdated }: PostCardProps) {
     }
   };
 
-  const handleDeleteComment = async (commentId: string) => {
-    try {
-      const { error } = await supabase.from('comments').delete().eq('id', commentId);
-      if (error) throw error;
-      await fetchComments();
-      onPostUpdated?.();
-    } catch (err) {
-      console.error('Erreur suppression:', err);
-    }
-  };
-
   const handleShare = () => {
     const url = window.location.href;
     if (navigator.share) {
@@ -122,40 +97,71 @@ export default function PostCard({ post, onPostUpdated }: PostCardProps) {
         url,
       });
     } else {
-      alert('Lien copié: ' + url);
       navigator.clipboard.writeText(url);
+      alert('Lien copié !');
     }
   };
 
   return (
-    <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
+      <div className="flex items-center gap-3 p-4">
         <img
           src={author?.avatar_url || 'https://via.placeholder.com/40'}
           alt="Avatar"
-          className="w-10 h-10 rounded-full object-cover"
+          className="w-10 h-10 rounded-full object-cover cursor-pointer"
         />
-        <div>
-          <p className="font-bold text-slate-800">{author?.full_name || 'Anonyme'}</p>
-          <p className="text-xs text-slate-500">{new Date(post.created_at).toLocaleDateString()}</p>
+        <div className="flex-1">
+          <p className="font-bold text-[15px] text-slate-900 hover:underline cursor-pointer">
+            {author?.full_name || 'Utilisateur'}
+          </p>
+          <div className="flex items-center gap-1 text-slate-500 text-xs">
+            <span>{new Date(post.created_at).toLocaleDateString()}</span>
+            <span>·</span>
+            <span>🌍</span>
+          </div>
         </div>
+        <button className="text-slate-500 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center">
+          ...
+        </button>
       </div>
 
       {/* Content */}
-      <p className="text-slate-700 mb-3">{post.content}</p>
+      <div className="px-4 pb-3">
+        <p className="text-[15px] text-slate-900 whitespace-pre-wrap">{post.content}</p>
+      </div>
 
       {/* Media */}
-      {post.image_url && <img src={post.image_url} alt="Post" className="w-full rounded-lg mb-3 max-h-96 object-cover" />}
+      {post.image_url && (
+        <div className="border-y border-slate-100 bg-slate-50">
+          <img src={post.image_url} alt="Post" className="w-full max-h-[500px] object-contain mx-auto" />
+        </div>
+      )}
+
+      {/* Stats */}
+      {(likesCount > 0 || post.comments_count > 0) && (
+        <div className="px-4 py-2 flex items-center justify-between text-slate-500 text-[14px]">
+          <div className="flex items-center gap-1">
+            <span className="bg-blue-500 text-white w-4 h-4 rounded-full flex items-center justify-center text-[10px]">👍</span>
+            <span>{likesCount}</span>
+          </div>
+          <div className="flex gap-3">
+            {post.comments_count > 0 && <span>{post.comments_count} commentaires</span>}
+            <span>{Math.floor(Math.random() * 10)} partages</span>
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
-      <div className="flex gap-6 py-3 border-t border-slate-200 text-slate-600">
+      <div className="px-4 py-1 flex gap-1 border-t border-slate-100 mx-3">
         <button
           onClick={handleLike}
-          className={`flex items-center gap-2 hover:text-blue-600 ${isLiked ? 'text-blue-600 font-bold' : ''}`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 hover:bg-slate-100 rounded-lg transition-colors ${
+            isLiked ? 'text-blue-600' : 'text-slate-600'
+          }`}
         >
-          <span className="text-xl">{isLiked ? '❤️' : '🤍'}</span>
-          {likesCount}
+          <span className="text-xl">{isLiked ? '👍' : '🩶'}</span>
+          <span className="font-semibold text-sm">J'aime</span>
         </button>
 
         <button
@@ -163,63 +169,61 @@ export default function PostCard({ post, onPostUpdated }: PostCardProps) {
             setShowComments(!showComments);
             if (!showComments) fetchComments();
           }}
-          className="flex items-center gap-2 hover:text-blue-600"
+          className="flex-1 flex items-center justify-center gap-2 py-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600"
         >
           <span className="text-xl">💬</span>
-          {post.comments_count || 0}
+          <span className="font-semibold text-sm">Commenter</span>
         </button>
 
-        <button onClick={handleShare} className="flex items-center gap-2 hover:text-blue-600">
+        <button 
+          onClick={handleShare}
+          className="flex-1 flex items-center justify-center gap-2 py-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600"
+        >
           <span className="text-xl">📤</span>
-          Partager
+          <span className="font-semibold text-sm">Partager</span>
         </button>
       </div>
 
       {/* Comments Section */}
       {showComments && (
-        <div className="mt-4 space-y-4 border-t pt-4">
-          <div className="space-y-2">
+        <div className="px-4 pb-4 space-y-4 border-t border-slate-100 mt-1 pt-3">
+          <div className="space-y-3">
             {comments.map((cmt) => (
-              <div key={cmt.id} className="bg-slate-50 p-3 rounded-lg">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={cmt.profiles?.avatar_url || 'https://via.placeholder.com/30'}
-                      alt="Avatar"
-                      className="w-6 h-6 rounded-full"
-                    />
-                    <p className="font-bold text-sm text-slate-800">{cmt.profiles?.full_name || 'Anonyme'}</p>
-                  </div>
-                  {cmt.user_id === currentUserId && (
-                    <button
-                      onClick={() => handleDeleteComment(cmt.id)}
-                      className="text-red-500 text-xs hover:text-red-700"
-                    >
-                      ✕
-                    </button>
-                  )}
+              <div key={cmt.id} className="flex gap-2">
+                <img
+                  src={cmt.profiles?.avatar_url || 'https://via.placeholder.com/32'}
+                  alt="Avatar"
+                  className="w-8 h-8 rounded-full flex-shrink-0"
+                />
+                <div className="bg-slate-100 px-3 py-2 rounded-2xl max-w-[90%]">
+                  <p className="font-bold text-xs text-slate-900">{cmt.profiles?.full_name || 'Anonyme'}</p>
+                  <p className="text-sm text-slate-800">{cmt.content}</p>
                 </div>
-                <p className="text-slate-700 text-sm">{cmt.content}</p>
               </div>
             ))}
           </div>
 
           {/* Add Comment */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Ajouter un commentaire..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+          <div className="flex gap-2 items-center">
+            <img
+              src={author?.avatar_url || 'https://via.placeholder.com/32'}
+              alt="My Avatar"
+              className="w-8 h-8 rounded-full"
             />
-            <button
-              onClick={handleAddComment}
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:bg-slate-400"
-            >
-              {loading ? '...' : 'Envoyer'}
-            </button>
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                placeholder="Écrivez un commentaire..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
+                className="w-full px-3 py-2 bg-slate-100 border-none rounded-full text-sm focus:ring-0 focus:outline-none"
+              />
+              <div className="absolute right-3 top-2 flex gap-2 text-slate-400">
+                <span>😊</span>
+                <span>📷</span>
+              </div>
+            </div>
           </div>
         </div>
       )}

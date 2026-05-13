@@ -4,13 +4,14 @@ import Auth from './components/Auth';
 import Navbar from './components/Navbar';
 import Feed from './components/Feed';
 import CreatePost from './components/CreatePost';
+import SidebarLeft from './components/SidebarLeft';
+import SidebarRight from './components/SidebarRight';
 import UserProfile from './components/UserProfile';
 import Chat from './components/Chat';
-import NotificationCenter from './components/NotificationCenter';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'feed' | 'chat' | 'profile'>('feed');
+  const [view, setView] = useState<'home' | 'profile' | 'messages' | 'video'>('home');
 
   useEffect(() => {
     // Vérifie la session au chargement du composant
@@ -31,77 +32,54 @@ export default function App() {
     return <Auth />;
   }
 
-  // Si connecté, on affiche l'interface complète
+  // Si connecté, on affiche l'interface complète en 3 colonnes
   return (
-    <div className="min-h-screen bg-slate-100">
-      <nav className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-blue-600">Niavo Social</h1>
-          <div className="flex items-center gap-4">
-            <NotificationCenter />
-            <Navbar userEmail={session.user.email} />
-          </div>
-        </div>
-      </nav>
-      <div className="max-w-7xl mx-auto px-4 mt-6">
-        <div className="flex gap-4 mb-6 border-b border-slate-200">
-          <button
-            onClick={() => setActiveTab('feed')}
-            className={`pb-3 px-4 font-semibold border-b-2 transition ${
-              activeTab === 'feed'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-600 hover:text-slate-800'
-            }`}
-          >
-            Fil d'actualité
-          </button>
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`pb-3 px-4 font-semibold border-b-2 transition ${
-              activeTab === 'chat'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-600 hover:text-slate-800'
-            }`}
-          >
-            Messages
-          </button>
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`pb-3 px-4 font-semibold border-b-2 transition ${
-              activeTab === 'profile'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-600 hover:text-slate-800'
-            }`}
-          >
-            Profil
-          </button>
-        </div>
+    <div className="min-h-screen bg-slate-100 flex flex-col">
+      <Navbar 
+        userEmail={session.user.email} 
+        onProfileClick={() => setView('profile')} 
+        onHomeClick={() => setView('home')} 
+        onMessagesClick={() => setView('messages')}
+        onVideoClick={() => setView('video')}
+        activeView={view}
+      />
+      
+      <main className="flex-1 flex justify-center w-full max-w-[1600px] mx-auto">
+        {/* Colonne Gauche - Navigation & Raccourcis */}
+        <SidebarLeft 
+          onProfileClick={() => setView('profile')} 
+          onHomeClick={() => setView('home')} 
+          onVideoClick={() => setView('video')}
+          onMessagesClick={() => setView('messages')}
+          activeView={view} 
+        />
 
-        <div className="mb-6">
-          {activeTab === 'feed' && (
-            <div className="flex justify-center">
-              <div className="w-full max-w-2xl space-y-6">
-                <CreatePost />
-                <Feed />
-              </div>
-            </div>
+        {/* Colonne Centre - Contenu principal */}
+        <div className={`flex-1 w-full px-4 py-6 space-y-6 ${view === 'messages' ? 'max-w-4xl' : 'max-w-[680px]'}`}>
+          {view === 'home' && (
+            <>
+              <CreatePost />
+              <Feed />
+            </>
           )}
-
-          {activeTab === 'chat' && (
-            <div className="h-screen">
+          {view === 'profile' && <UserProfile />}
+          {view === 'messages' && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-[600px]">
               <Chat />
             </div>
           )}
-
-          {activeTab === 'profile' && (
-            <div className="flex justify-center">
-              <div className="w-full max-w-2xl">
-                <UserProfile />
-              </div>
+          {view === 'video' && (
+            <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-slate-200">
+              <span className="text-6xl mb-4 block">📺</span>
+              <h2 className="text-2xl font-bold text-slate-800">Vidéos Niavo Watch</h2>
+              <p className="text-slate-500">Bientôt disponible !</p>
             </div>
           )}
         </div>
-      </div>
+
+        {/* Colonne Droite - Contacts & Chat */}
+        <SidebarRight onMessagesClick={() => setView('messages')} />
+      </main>
     </div>
   );
 }
