@@ -13,7 +13,6 @@ export default function PostCard({ post, onPostUpdated }: PostCardProps) {
   const [showComments, setShowComments] = useState(false);
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState('');
   const author = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
 
@@ -68,7 +67,6 @@ export default function PostCard({ post, onPostUpdated }: PostCardProps) {
   const handleAddComment = async () => {
     if (!comment.trim() || !currentUserId) return;
 
-    setLoading(true);
     try {
       const { error } = await supabase.from('comments').insert({
         post_id: post.id,
@@ -83,8 +81,6 @@ export default function PostCard({ post, onPostUpdated }: PostCardProps) {
       onPostUpdated?.();
     } catch (err) {
       console.error('Erreur ajout commentaire:', err);
-    } finally {
-      setLoading(false);
     }
   };
 

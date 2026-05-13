@@ -4,13 +4,11 @@ import type { UserProfile } from '../types';
 
 export default function SidebarRight({ onMessagesClick }: { onMessagesClick: () => void }) {
   const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([]);
-  const [currentUserId, setCurrentUserId] = useState('');
 
   useEffect(() => {
     const init = async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (userData?.user?.id) {
-        setCurrentUserId(userData.user.id);
         fetchUsers(userData.user.id);
       }
     };
